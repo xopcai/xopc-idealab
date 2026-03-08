@@ -5,11 +5,13 @@
 import TelegramBot from 'node-telegram-bot-api';
 import type { Storage } from '../storage/db.ts';
 import type { Catalyst } from '../catalyst/engine.ts';
+import { SpeechRecognizer } from '../brain/speech.ts';
 
 export class Bot {
   private bot: TelegramBot;
   private db: Storage;
   private catalyst: Catalyst;
+  private speech: SpeechRecognizer;
   private allowedUserIds: number[] = [];
   private pendingFeedback: Map<number, string> = new Map(); // chatId -> ideaId
 
@@ -21,6 +23,7 @@ export class Bot {
     this.bot = new TelegramBot(token, { polling: true });
     this.db = db;
     this.catalyst = catalyst;
+    this.speech = new SpeechRecognizer();
     
     // 解析允许的用户 ID
     const ids = process.env.ALLOWED_USER_IDS;
@@ -86,8 +89,7 @@ export class Bot {
 
       // 处理语音
       if (msg.voice) {
-        this.bot.sendMessage(chatId, '🎤 收到语音，正在转文字...（TODO: 语音识别）');
-        // TODO: 语音识别
+        this.handleVoiceMessage(chatId, msg.voice.file_id);
         return;
       }
 
@@ -208,6 +210,28 @@ ${ideas.slice(0, 3).map(i => `• ${i.content.slice(0, 30)}${i.content.length > 
         [Date.now()]: type
       }
     });
+  }
+
+  private async handleVoiceMessage(chatId: number, fileId: string) {
+    const loadingMsg = await this.bot.sendMessage(chatId, '🎤 收到语音，正在转文字...');
+
+    try {
+      const text = await this.speech.transcribe(fileId, this.bot);
+      
+      // 删除加载消息
+      await this.bot.deleteMessage(chatId, loadingMsg.message_id);
+      
+      // 确认识别结果
+      await this.bot.sendMessage(chatId, `🎤 识别结果：\n"${text}"`);
+      
+      // 自动保存为 idea
+      this.captureIdea(chatId, text, 'voice');
+    } catch (error: any) {
+      await this.bot.editMessageText(
+        `❌ 语音识别失败：${error.message}`,
+        { chat_id: chatId, message_id: loadingMsg.message_id }
+      );
+    }
   }
 
   async start() {
