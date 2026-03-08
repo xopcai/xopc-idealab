@@ -22,13 +22,13 @@ export class MarketScanner {
    * 扫描所有数据源
    */
   async scanAll(): Promise<MarketSignal[]> {
-    const [productHunt] = await Promise.all([
-      this.scanProductHunt()
-      // this.scanGitHub(),
+    const [productHunt, github] = await Promise.all([
+      this.scanProductHunt(),
+      this.scanGitHub()
       // this.scanHackerNews()
     ]);
 
-    const all = [...productHunt];
+    const all = [...productHunt, ...github];
     
     // 缓存结果
     this.cache.set('all', {
@@ -133,7 +133,85 @@ export class MarketScanner {
   }
 
   /**
-   * 降级数据（API 失败时用）
+   * 扫描 GitHub Trending - 每日热门项目
+   */
+  async scanGitHub(): Promise<MarketSignal[]> {
+    try {
+      // 检查缓存
+      const cached = this.getCached('github');
+      if (cached) return cached;
+
+      // GitHub Trending 没有官方 API，用 HTML 解析
+      const url = 'https://github.com/trending?spoken_language_code=';
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'xopc-idealab/1.0',
+          'Accept': 'text/html'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn('GitHub Trending 获取失败:', response.status);
+        return this.fallbackGitHub();
+      }
+
+      const html = await response.text();
+      const items = this.parseGitHubTrending(html);
+
+      console.log(`📦 GitHub Trending 扫描完成：${items.length} 个项目`);
+      return items;
+    } catch (error) {
+      console.error('GitHub Trending 扫描失败:', error);
+      return this.fallbackGitHub();
+    }
+  }
+
+  /**
+   * 解析 GitHub Trending HTML
+   */
+  private parseGitHubTrending(html: string): MarketSignal[] {
+    const items: MarketSignal[] = [];
+    
+    // 提取 trending 项目（简化解析，实际可以用 cheerio）
+    const articleRegex = /<article[^>]*>[\s\S]*?<\/article>/g;
+    let match;
+    
+    while ((match = articleRegex.exec(html)) !== null) {
+      const article = match[0];
+      
+      // 提取项目名
+      const nameMatch = article.match(/<span[^>]*class="[^"]*text-normal[^"]*"[^>]*>([\s\S]*?)<\/span>/);
+      const name = nameMatch ? this.cleanText(nameMatch[1]) : null;
+      
+      // 提取描述
+      const descMatch = article.match(/<p[^>]*class="[^"]*col-9[^"]*"[^>]*>([\s\S]*?)<\/p>/);
+      const description = descMatch ? this.cleanText(descMatch[1]) : null;
+      
+      // 提取 stars
+      const starMatch = article.match(/svg[^>]*star[^>]*<\/svg>[\s\S]*?(\d+[,.\d]*)/);
+      const stars = starMatch ? parseInt(starMatch[1].replace(/[,\.]/g, '')) : undefined;
+      
+      // 提取链接
+      const linkMatch = article.match(/href="([^"]+)"[^>]*class="[^"]*text-indigo-dark/);
+      const link = linkMatch ? `https://github.com${linkMatch[1]}` : null;
+
+      if (name && link) {
+        items.push({
+          source: 'github',
+          title: name,
+          url: link,
+          description: description || undefined,
+          upvotes: stars,
+          collectedAt: Date.now()
+        });
+      }
+    }
+
+    return items.slice(0, 10); // 只取前 10 个
+  }
+
+  /**
+   * 降级数据（API 失败时用）- Product Hunt
    */
   private fallbackProductHunt(): MarketSignal[] {
     return [
@@ -142,6 +220,22 @@ export class MarketScanner {
         title: 'AI 灵感催化器 - 从想法到 MVP',
         url: 'https://www.producthunt.com/',
         description: '帮助超级个体快速落地想法',
+        collectedAt: Date.now()
+      }
+    ];
+  }
+
+  /**
+   * 降级数据（API 失败时用）- GitHub
+   */
+  private fallbackGitHub(): MarketSignal[] {
+    return [
+      {
+        source: 'github',
+        title: 'trending/awesome-project',
+        url: 'https://github.com/trending',
+        description: 'GitHub Trending 热门项目',
+        upvotes: 1000,
         collectedAt: Date.now()
       }
     ];
