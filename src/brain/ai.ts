@@ -34,11 +34,13 @@ export interface CatalysisReport {
 export class AICatalyst {
   private apiUrl: string;
   private apiKey: string;
+  private model: string;
 
   constructor() {
-    // 使用 OpenClaw 环境或配置的大模型 API
-    this.apiUrl = process.env.AI_API_URL || 'https://api.openclaw.ai/v1/chat/completions';
+    // 使用 MiniMax API (默认) 或配置的大模型 API
+    this.apiUrl = process.env.AI_API_URL || 'https://api.minimaxi.com/v1/chat/completions';
     this.apiKey = process.env.AI_API_KEY || '';
+    this.model = process.env.AI_MODEL || 'codex-MiniMax-M2.5';
   }
 
   /**
@@ -139,7 +141,7 @@ ${context.marketSignals.map((s: any) => `• ${s.title}${s.upvotes ? ` (${s.upvo
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
-          model: 'qwen3.5-plus',
+          model: this.model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
           max_tokens: 2000
@@ -147,7 +149,8 @@ ${context.marketSignals.map((s: any) => `• ${s.title}${s.upvotes ? ` (${s.upvo
       });
 
       if (!response.ok) {
-        throw new Error(`API 错误：${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`API 错误：${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
