@@ -40,7 +40,7 @@ export class AICatalyst {
     // 使用 MiniMax API (默认) 或配置的大模型 API
     this.apiUrl = process.env.AI_API_URL || 'https://api.minimaxi.com/v1/chat/completions';
     this.apiKey = process.env.AI_API_KEY || '';
-    this.model = process.env.AI_MODEL || 'codex-MiniMax-M2.5';
+    this.model = process.env.AI_MODEL || 'MiniMax-M2.5';
   }
 
   /**
