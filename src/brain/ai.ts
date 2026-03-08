@@ -2,6 +2,8 @@
  * AI 催化引擎 - 调用大模型生成深度报告
  */
 
+import type { MarketSignal } from './scanner.ts';
+
 export interface CatalysisReport {
   ideaId: string;
   originalIdea: string;
@@ -44,6 +46,7 @@ export class AICatalyst {
    */
   async generate(idea: string, context?: {
     pastIdeas?: string[];
+    marketSignals?: MarketSignal[];
     userPreferences?: any;
   }): Promise<CatalysisReport> {
     const prompt = this.buildPrompt(idea, context);
@@ -72,6 +75,11 @@ ${context?.pastIdeas?.length ? `
 ${context.pastIdeas.join('\n')}
 ` : ''}
 
+${context?.marketSignals?.length ? `
+## 当前市场信号（Product Hunt 热门）
+${context.marketSignals.map((s: any) => `• ${s.title}${s.upvotes ? ` (${s.upvotes} upvotes)` : ''} - ${s.url}`).join('\n')}
+` : ''}
+
 ## 你的任务
 请生成一份催化报告，包含以下内容（用 JSON 格式返回）：
 
@@ -79,7 +87,7 @@ ${context.pastIdeas.join('\n')}
 2. **MVP 功能** - 必须有 vs 锦上添花
 3. **技术栈建议** - 前后端 + 数据库 + 基础设施
 4. **关键问题** - 5-7 个苏格拉底式问题，帮助用户思考本质
-5. **市场信号** - 当前市场趋势、竞品情况
+5. **市场信号** - 结合上方真实市场数据
 6. **风险评估** - 技术/市场/执行风险
 7. **置信度** - 0-1 之间，表示这个想法的可行性
 8. **下一步行动** - 3-5 个具体可执行步骤

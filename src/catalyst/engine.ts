@@ -4,16 +4,19 @@
 
 import type { Storage, Idea } from '../storage/db.ts';
 import { AICatalyst, type CatalysisReport } from '../brain/ai.ts';
+import { MarketScanner } from '../brain/scanner.ts';
 
 export class Catalyst {
   private db: Storage;
   private ai: AICatalyst;
+  private scanner: MarketScanner;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private intervalHours: number;
 
   constructor(db: Storage) {
     this.db = db;
     this.ai = new AICatalyst();
+    this.scanner = new MarketScanner();
     this.intervalHours = parseInt(process.env.CATALYST_INTERVAL_HOURS || '24');
   }
 
@@ -74,9 +77,15 @@ export class Catalyst {
     console.log(`  └─ 催化中：${idea.id}`);
 
     try {
+      // 扫描市场信号
+      console.log(`  └─ 扫描市场信号...`);
+      const marketSignals = await this.scanner.scanAll();
+      const relatedSignals = this.scanner.getRelatedSignals(idea.content);
+
       // 调用 AI 生成催化报告
       const report = await this.ai.generate(idea.content, {
-        pastIdeas: await this.getRelatedIdeas(idea)
+        pastIdeas: await this.getRelatedIdeas(idea),
+        marketSignals: relatedSignals
       });
 
       // 更新状态
