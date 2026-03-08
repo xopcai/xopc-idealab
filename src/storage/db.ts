@@ -84,23 +84,58 @@ export class Storage {
     
     const rows = this.db.query(query).all(status);
     return rows.map((row: any) => ({
-      ...row,
-      tags: JSON.parse(row.tags || '[]')
+      id: row.id,
+      content: row.content,
+      inputType: row.input_type,
+      createdAt: row.created_at,
+      tags: JSON.parse(row.tags || '[]'),
+      passionScore: row.passion_score,
+      status: row.status,
+      catalysisReport: row.catalysis_report,
+      valueFeedback: row.value_feedback,
+      updatedAt: row.updated_at
     }));
   }
 
   getIdeaById(id: string): Idea | null {
     const row = this.db.query('SELECT * FROM ideas WHERE id = ?').get(id) as any;
     if (!row) return null;
-    return {
-      ...row,
-      tags: JSON.parse(row.tags || '[]')
+    
+    // 字段名映射（下划线 → 驼峰）
+    const mapped: any = {
+      id: row.id,
+      content: row.content,
+      inputType: row.input_type,
+      createdAt: row.created_at,
+      tags: JSON.parse(row.tags || '[]'),
+      passionScore: row.passion_score,
+      status: row.status,
+      catalysisReport: row.catalysis_report,
+      valueFeedback: row.value_feedback,
+      updatedAt: row.updated_at
     };
+    
+    return mapped;
   }
 
   updateIdea(id: string, updates: Partial<Idea>) {
     const now = Date.now();
-    const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+    
+    // 字段名映射（驼峰 → 下划线）
+    const fieldMap: Record<string, string> = {
+      'catalysisReport': 'catalysis_report',
+      'inputType': 'input_type',
+      'createdAt': 'created_at',
+      'passionScore': 'passion_score',
+      'valueFeedback': 'value_feedback',
+      'updatedAt': 'updated_at'
+    };
+    
+    const fields = Object.keys(updates).map(k => {
+      const dbField = fieldMap[k] || k;
+      return `${dbField} = ?`;
+    }).join(', ');
+    
     const values = Object.values(updates);
     
     this.db.run(
@@ -132,8 +167,16 @@ export class Storage {
     `).all() as any[];
 
     return rows.map(row => ({
-      ...row,
-      tags: JSON.parse(row.tags || '[]')
+      id: row.id,
+      content: row.content,
+      inputType: row.input_type,
+      createdAt: row.created_at,
+      tags: JSON.parse(row.tags || '[]'),
+      passionScore: row.passion_score,
+      status: row.status,
+      catalysisReport: row.catalysis_report,
+      valueFeedback: row.value_feedback,
+      updatedAt: row.updated_at
     }));
   }
 }
