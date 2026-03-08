@@ -24,5 +24,5 @@ const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || '', db, catalyst);
 await bot.start();
 console.log('✅ 就绪 - 等待灵感输入');
 
-// 启动催化心跳
-catalyst.startHeartbeat();
+// 启动催化心跳（传入 bot 引用用于推送）
+catalyst.startHeartbeat(bot);

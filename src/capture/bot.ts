@@ -11,6 +11,7 @@ export class Bot {
   private db: Storage;
   private catalyst: Catalyst;
   private allowedUserIds: number[] = [];
+  private pendingFeedback: Map<number, string> = new Map(); // chatId -> ideaId
 
   constructor(token: string, db: Storage, catalyst: Catalyst) {
     if (!token) {
@@ -156,6 +157,22 @@ ${ideas.slice(0, 3).map(i => `• ${i.content.slice(0, 30)}${i.content.length > 
 简单说：你负责灵感，我负责催化。
       `);
     });
+
+    // 处理价值反馈
+    this.bot.on('message', (msg) => {
+      const chatId = msg.chat.id;
+      const text = msg.text?.toLowerCase();
+      if (!this.isAllowed(chatId) || !text) return;
+
+      // 检测反馈关键词
+      if (text.includes('有用') || text.includes('helpful') || text.includes('👍')) {
+        this.recordFeedback(chatId, 'positive');
+        this.bot.sendMessage(chatId, '👍 收到！我会记住你的偏好，未来催化更精准。');
+      } else if (text.includes('没用') || text.includes('not helpful') || text.includes('👎')) {
+        this.recordFeedback(chatId, 'negative');
+        this.bot.sendMessage(chatId, '👎 收到！告诉我哪里不够好，我会改进。');
+      }
+    });
   }
 
   private captureIdea(chatId: number, content: string, type: 'text' | 'voice' | 'link' | 'image') {
@@ -183,6 +200,16 @@ ${ideas.slice(0, 3).map(i => `• ${i.content.slice(0, 30)}${i.content.length > 
     return this.allowedUserIds.includes(chatId);
   }
 
+  private recordFeedback(chatId: number, type: 'positive' | 'negative') {
+    // TODO: 记录反馈到数据库，用于训练品味模型
+    console.log(`📝 反馈记录：chatId=${chatId}, type=${type}`);
+    this.db.saveUserProfile('feedback_history', {
+      [chatId]: {
+        [Date.now()]: type
+      }
+    });
+  }
+
   async start() {
     console.log('🤖 Telegram Bot 启动中...');
     // Bot 已经在构造函数中启动 polling
@@ -197,5 +224,9 @@ ${ideas.slice(0, 3).map(i => `• ${i.content.slice(0, 30)}${i.content.length > 
         console.warn(`推送失败 ${userId}:`, e);
       }
     }
+  }
+
+  getBot(): TelegramBot {
+    return this.bot;
   }
 }
