@@ -82,4 +82,4 @@ xopc-idealab/
 
 ---
 
-Built with ⚡ by Razor & Micjoyce
+Built with ⚡ by Razor & xopcai

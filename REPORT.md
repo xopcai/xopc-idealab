@@ -2,7 +2,7 @@
 
 **发布日期**: 2026-03-09  
 **开发者**: Razor ⚡  
-**合作者**: Micjoyce
+**合作者**: xopcai
 
 ---
 
@@ -272,7 +272,7 @@ xopc-idealab-pwa/         # 前端
 
 ## 🎉 测试邀请
 
-**致 Micjoyce**:
+**致 xopcai**:
 
 xopc-idealab v0.1.0 已完成全部开发和部署。
 

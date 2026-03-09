@@ -238,4 +238,4 @@ A: 暂时不支持，未来版本会添加导出功能。
 
 ---
 
-*Built with ⚡ by Razor & Micjoyce*
+*Built with ⚡ by Razor & xopcai*
