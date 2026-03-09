@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getIdea, deleteIdea, catalyzeIdea } from '../../api';
+import { getIdea, deleteIdea, catalyzeIdea, startExperiment } from '../../api';
 
 export default function IdeaDetail() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +22,13 @@ export default function IdeaDetail() {
     mutationFn: () => catalyzeIdea(id!),
     onSuccess: () => {
       navigate(`/pwa/report/${id}`);
+    }
+  });
+
+  const experimentMutation = useMutation({
+    mutationFn: () => startExperiment(id!),
+    onSuccess: () => {
+      navigate(`/pwa/experiment/${id}`);
     }
   });
 
@@ -56,11 +63,18 @@ export default function IdeaDetail() {
           ← 返回
         </Link>
         <div className="flex gap-2">
+          <button
+            onClick={() => experimentMutation.mutate()}
+            disabled={experimentMutation.isPending}
+            className="btn btn-primary text-sm"
+          >
+            {experimentMutation.isPending ? '启动中...' : '🧪 实验'}
+          </button>
           {idea.status !== 'catalyzed' && (
             <button
               onClick={() => catalyzeMutation.mutate()}
               disabled={catalyzeMutation.isPending}
-              className="btn btn-primary text-sm"
+              className="btn btn-secondary text-sm"
             >
               {catalyzeMutation.isPending ? '催化中...' : '⚡ 催化'}
             </button>
@@ -107,6 +121,22 @@ export default function IdeaDetail() {
           </div>
         )}
       </div>
+
+      {/* 实验日志入口 */}
+      {(idea.status === 'experimenting' || idea.status === 'validated') && (
+        <Link
+          to={`/pwa/experiment/${id}`}
+          className="block card border-green-500/20 bg-green-500/5 hover:border-green-500/40"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🧪</span>
+            <div>
+              <p className="font-semibold text-green-400">查看实验日志</p>
+              <p className="text-xs text-white/40">AI 自主探索过程</p>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* 催化报告入口 */}
       {idea.status === 'catalyzed' && (

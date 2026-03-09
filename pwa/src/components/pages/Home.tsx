@@ -94,11 +94,23 @@ export default function Home() {
                   <p className="flex-1 text-white/90 line-clamp-2">
                     {idea.content}
                   </p>
-                  {idea.status === 'catalyzed' && (
-                    <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                      已催化
-                    </span>
-                  )}
+                  <div className="flex gap-2">
+                    {idea.status === 'experimenting' && (
+                      <span className="text-xs px-2 py-1 bg-yellow-500/10 text-yellow-400 rounded animate-pulse">
+                        🧪 实验中
+                      </span>
+                    )}
+                    {idea.status === 'validated' && (
+                      <span className="text-xs px-2 py-1 bg-green-500/10 text-green-400 rounded">
+                        ✅ 已验证
+                      </span>
+                    )}
+                    {idea.status === 'catalyzed' && (
+                      <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
+                        已催化
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-3 flex items-center gap-3 text-xs text-white/40">
                   <span>{formatDate(idea.createdAt)}</span>

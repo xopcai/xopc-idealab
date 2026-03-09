@@ -5,6 +5,7 @@ import Login from './components/pages/Login';
 import Home from './components/pages/Home';
 import IdeaDetail from './components/pages/IdeaDetail';
 import Report from './components/pages/Report';
+import ExperimentLog from './components/pages/ExperimentLog';
 
 function App() {
   const { token } = useAuthStore();
@@ -15,6 +16,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="idea/:id" element={<IdeaDetail />} />
         <Route path="report/:id" element={<Report />} />
+        <Route path="experiment/:id" element={<ExperimentLog />} />
       </Route>
       <Route path="/pwa/login" element={<Login />} />
       <Route path="*" element={<Navigate to="/pwa/login" />} />

@@ -111,3 +111,58 @@ export async function submitFeedback(ideaId: string, type: 'positive' | 'negativ
     body: JSON.stringify({ ideaId, type })
   });
 }
+
+// Experiment API
+export interface Experiment {
+  id: string;
+  round: number;
+  timestamp: number;
+  hypothesis: string;
+  variant: {
+    type: string;
+    changes: string[];
+  };
+  metrics: {
+    positiveFeedback: number;
+    totalContacts: number;
+    conversionRate: number;
+  };
+  status: 'keep' | 'discard' | 'crash';
+  aiReflection: string;
+}
+
+export interface ExperimentLog {
+  ideaId: string;
+  framework: {
+    type: string;
+    timeBudgetMs: number;
+    successMetric: string;
+    successThreshold: number;
+    mutableVariables: string[];
+    immutableConstraints: string[];
+  };
+  experiments: Experiment[];
+  bestVariant?: string;
+  learningSummary?: string;
+  startedAt: number;
+  completedAt?: number;
+}
+
+export async function startExperiment(ideaId: string) {
+  return apiRequest<{ success: boolean; message: string }>('/experiment/start', {
+    method: 'POST',
+    body: JSON.stringify({ ideaId })
+  });
+}
+
+export async function getExperimentLog(ideaId: string) {
+  return apiRequest<{ log: ExperimentLog }>(`/experiment/log/${ideaId}`);
+}
+
+export async function getExperimentSummary(ideaId: string) {
+  return apiRequest<{ 
+    summary: string; 
+    bestVariant?: string; 
+    completedAt?: number 
+  }>(`/experiment/summary/${ideaId}`);
+}
