@@ -1,20 +1,15 @@
 # 依赖
 node_modules/
-pwa/node_modules/
+
+# 构建产物
+dist/
 
 # 环境配置
 .env
-
-# 数据库
-data/*.sqlite
-data/*.sqlite-journal
+.env.local
 
 # 日志
 *.log
-
-# 编译输出
-dist/
-pwa/dist/
 
 # 系统文件
 .DS_Store
@@ -23,5 +18,3 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
-*.swp
-*.swo

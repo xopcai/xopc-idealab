@@ -8,7 +8,11 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
-    "test:coverage": "bun test --coverage"
+    "test:coverage": "bun test --coverage",
+    "pwa:dev": "cd pwa && bun run dev",
+    "pwa:build": "cd pwa && bun run build",
+    "pwa:preview": "cd pwa && bun run preview",
+    "build": "bun run pwa:build"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0"
