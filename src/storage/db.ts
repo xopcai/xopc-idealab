@@ -66,6 +66,7 @@ export class Storage {
   }
 
   async init() {
+    // 创建表（如果不存在）
     this.db.run(`
       CREATE TABLE IF NOT EXISTS ideas (
         id TEXT PRIMARY KEY,
@@ -81,6 +82,17 @@ export class Storage {
         updated_at INTEGER NOT NULL
       )
     `);
+
+    // 迁移：添加 experiment_log 列（如果不存在）
+    try {
+      this.db.run(`ALTER TABLE ideas ADD COLUMN experiment_log TEXT`);
+      console.log('📦 数据库迁移：添加 experiment_log 列');
+    } catch (e: any) {
+      // 列已存在，忽略
+      if (!e.message.includes('duplicate column')) {
+        throw e;
+      }
+    }
 
     this.db.run(`
       CREATE TABLE IF NOT EXISTS user_profile (
@@ -163,6 +175,7 @@ export class Storage {
     // 字段名映射（驼峰 → 下划线）
     const fieldMap: Record<string, string> = {
       'catalysisReport': 'catalysis_report',
+      'experimentLog': 'experiment_log',
       'inputType': 'input_type',
       'createdAt': 'created_at',
       'passionScore': 'passion_score',
