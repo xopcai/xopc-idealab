@@ -166,9 +166,21 @@ ${context.marketSignals.map((s: any) => `• ${s.title}${s.upvotes ? ` (${s.upvo
    */
   private parseReport(aiResponse: string, originalIdea: string): CatalysisReport {
     try {
-      // 尝试提取 JSON
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : aiResponse;
+      // 提取 JSON（处理可能的思考过程）
+      let jsonStr = aiResponse;
+      
+      // 移除可能的 Markdown 代码块标记
+      jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // 提取第一个 { 到最后一个 }
+      const startIdx = jsonStr.indexOf('{');
+      const endIdx = jsonStr.lastIndexOf('}');
+      
+      if (startIdx === -1 || endIdx === -1) {
+        throw new Error('未找到 JSON 内容');
+      }
+      
+      jsonStr = jsonStr.substring(startIdx, endIdx + 1);
       const parsed = JSON.parse(jsonStr);
 
       return {
@@ -184,8 +196,8 @@ ${context.marketSignals.map((s: any) => `• ${s.title}${s.upvotes ? ` (${s.upvo
         confidence: parsed.confidence || 0.5,
         nextSteps: parsed.nextSteps || []
       };
-    } catch (e) {
-      console.warn('AI 响应解析失败，使用降级报告');
+    } catch (e: any) {
+      console.warn('AI 响应解析失败:', e.message, '使用降级报告');
       return this.fallbackReport(originalIdea);
     }
   }
