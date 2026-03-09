@@ -1,0 +1,20 @@
+[Unit]
+Description=xopc-idealab - 灵感催化实验室
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/.openclaw/workspace/xopc-idealab
+ExecStart=/home/admin/.bun/bin/bun run src/index.ts
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xopc-idealab
+
+[Install]
+WantedBy=multi-user.target
