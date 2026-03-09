@@ -204,14 +204,89 @@ POST /api/feedback
 }
 ```
 
-**字段**:
-- `ideaId` (必填): 灵感 ID
-- `type` (必填): `positive` | `negative`
-
 **响应**:
 ```json
 {
   "success": true
+}
+```
+
+---
+
+### 8. 启动实验（新模式）
+
+```http
+POST /api/experiment/start
+```
+
+**说明**: 启动 AI 自主实验循环，替代一次性催化
+
+**请求**:
+```json
+{
+  "ideaId": "xxx"
+}
+```
+
+**响应**:
+```json
+{
+  "success": true,
+  "message": "实验已启动，完成后推送通知"
+}
+```
+
+**流程**:
+1. AI 生成实验框架（Landing Page / 访谈 / 定价）
+2. 自主迭代最多 10 轮
+3. 每轮 2 小时预算
+4. 完成后推送总结
+
+---
+
+### 9. 获取实验日志
+
+```http
+GET /api/experiment/log/:ideaId
+```
+
+**响应**:
+```json
+{
+  "log": {
+    "ideaId": "xxx",
+    "framework": {
+      "type": "landing_page",
+      "timeBudgetMs": 7200000,
+      "successThreshold": 0.05
+    },
+    "experiments": [
+      {
+        "round": 1,
+        "hypothesis": "更直接的标题会提升转化",
+        "status": "keep",
+        "metrics": { "conversionRate": 0.03 }
+      }
+    ],
+    "startedAt": 1234567890
+  }
+}
+```
+
+---
+
+### 10. 获取实验总结
+
+```http
+GET /api/experiment/summary/:ideaId
+```
+
+**响应**:
+```json
+{
+  "summary": "实验完成：共 5 轮\n最佳转化率：6%\n关键学习：...",
+  "bestVariant": "exp_xxx",
+  "completedAt": 1234567890
 }
 ```
 

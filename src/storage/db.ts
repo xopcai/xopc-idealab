@@ -11,8 +11,46 @@ export interface Idea {
   createdAt: number;
   tags: string[];
   passionScore?: number; // 用户热情度 1-10
-  status: 'captured' | 'catalyzing' | 'catalyzed' | 'shelved';
-  catalysisReport?: string; // JSON string
+  status: 'captured' | 'catalyzing' | 'catalyzed' | 'experimenting' | 'validated' | 'shelved';
+  catalysisReport?: string; // JSON string (legacy)
+  experimentLog?: string; // JSON string - 实验日志
+}
+
+export interface Experiment {
+  id: string;
+  ideaId: string;
+  round: number;
+  timestamp: number;
+  hypothesis: string;
+  variant: {
+    type: 'landing_page' | 'pricing' | 'interview';
+    changes: string[];
+    content?: string; // Landing Page HTML 或访谈脚本
+  };
+  metrics: {
+    positiveFeedback: number;
+    totalContacts: number;
+    conversionRate: number;
+    notes?: string;
+  };
+  status: 'keep' | 'discard' | 'crash';
+  aiReflection: string;
+}
+
+export interface ExperimentLog {
+  ideaId: string;
+  framework: {
+    timeBudgetMs: number;
+    successMetric: string;
+    successThreshold: number;
+    mutableVariables: string[];
+    immutableConstraints: string[];
+  };
+  experiments: Experiment[];
+  bestVariant?: string;
+  learningSummary?: string;
+  startedAt: number;
+  completedAt?: number;
 }
 
 export class Storage {
@@ -38,6 +76,7 @@ export class Storage {
         passion_score INTEGER,
         status TEXT NOT NULL DEFAULT 'captured',
         catalysis_report TEXT,
+        experiment_log TEXT,
         value_feedback TEXT,
         updated_at INTEGER NOT NULL
       )
@@ -159,7 +198,6 @@ export class Storage {
   }
 
   getPendingCatalysis(): Idea[] {
-    // 获取待催化的 idea: 已捕获但未催化，或已催化但需要重新评估
     const rows = this.db.query(`
       SELECT * FROM ideas 
       WHERE status IN ('captured', 'catalyzed') 
@@ -175,8 +213,44 @@ export class Storage {
       passionScore: row.passion_score,
       status: row.status,
       catalysisReport: row.catalysis_report,
+      experimentLog: row.experiment_log,
       valueFeedback: row.value_feedback,
       updatedAt: row.updated_at
     }));
+  }
+
+  getPendingExperiments(): Idea[] {
+    const rows = this.db.query(`
+      SELECT * FROM ideas 
+      WHERE status IN ('captured', 'experimenting') 
+      ORDER BY created_at DESC
+    `).all() as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      content: row.content,
+      inputType: row.input_type,
+      createdAt: row.created_at,
+      tags: JSON.parse(row.tags || '[]'),
+      passionScore: row.passion_score,
+      status: row.status,
+      catalysisReport: row.catalysis_report,
+      experimentLog: row.experiment_log,
+      valueFeedback: row.value_feedback,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  saveExperimentLog(log: ExperimentLog) {
+    this.updateIdea(log.ideaId, {
+      experimentLog: JSON.stringify(log),
+      status: log.completedAt ? 'validated' : 'experimenting'
+    });
+  }
+
+  getExperimentLog(ideaId: string): ExperimentLog | null {
+    const idea = this.getIdeaById(ideaId);
+    if (!idea?.experimentLog) return null;
+    return JSON.parse(idea.experimentLog);
   }
 }

@@ -5,11 +5,13 @@
 import { Server } from 'bun';
 import { Storage } from '../storage/db.ts';
 import { Catalyst } from '../catalyst/engine.ts';
+import { ExperimentEngine } from '../experiment/engine.ts';
 import type { Bot } from '../capture/bot.ts';
 
 interface Env {
   db: Storage;
   catalyst: Catalyst;
+  experiment: ExperimentEngine;
   bot?: Bot;
   tokens: Map<string, { userId: number; createdAt: number }>;
 }
@@ -202,25 +204,73 @@ async function handleRequest(req: Request): Promise<Response> {
   // POST /api/feedback - 提交反馈
   if (path === '/api/feedback' && method === 'POST') {
     const body = await req.json().catch(() => ({}));
-    const { ideaId, type } = body; // type: 'positive' | 'negative'
+    const { ideaId, type } = body;
 
     if (!ideaId || !type) {
       return error('ideaId 和 type 必填', 400);
     }
 
-    // 记录反馈
     env.db.saveUserProfile('feedback_history', {
       [userId]: {
-        [ideaId]: {
-          type,
-          timestamp: Date.now()
-        }
+        [ideaId]: { type, timestamp: Date.now() }
       }
     });
 
     console.log(`📝 反馈：idea=${ideaId}, type=${type}`);
-
     return json({ success: true });
+  }
+
+  // POST /api/experiment/start - 启动实验
+  if (path === '/api/experiment/start' && method === 'POST') {
+    const body = await req.json().catch(() => ({}));
+    const { ideaId } = body;
+
+    if (!ideaId) {
+      return error('ideaId 必填', 400);
+    }
+
+    const idea = env.db.getIdeaById(ideaId);
+    if (!idea) {
+      return error('灵感不存在', 404);
+    }
+
+    // 后台启动实验
+    env.experiment.startExperimentLoop(idea, env.bot);
+
+    return json({
+      success: true,
+      message: '实验已启动，完成后推送通知'
+    });
+  }
+
+  // GET /api/experiment/log/:id - 获取实验日志
+  const expLogMatch = path.match(/^\/api\/experiment\/log\/([^/]+)$/);
+  if (expLogMatch && method === 'GET') {
+    const ideaId = expLogMatch[1];
+    const log = env.db.getExperimentLog(ideaId);
+
+    if (!log) {
+      return error('暂无实验日志', 404);
+    }
+
+    return json({ log });
+  }
+
+  // GET /api/experiment/summary/:id - 获取实验总结
+  const expSumMatch = path.match(/^\/api\/experiment\/summary\/([^/]+)$/);
+  if (expSumMatch && method === 'GET') {
+    const ideaId = expSumMatch[1];
+    const log = env.db.getExperimentLog(ideaId);
+
+    if (!log?.learningSummary) {
+      return error('实验未完成', 404);
+    }
+
+    return json({
+      summary: log.learningSummary,
+      bestVariant: log.bestVariant,
+      completedAt: log.completedAt
+    });
   }
 
   // 404
@@ -239,6 +289,7 @@ export async function startApiServer(
   env = {
     db,
     catalyst,
+    experiment: new ExperimentEngine(db),
     bot,
     tokens: new Map()
   };
