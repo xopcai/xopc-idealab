@@ -7,13 +7,13 @@ import { Storage } from '../storage/db.ts';
 import { Catalyst } from '../catalyst/engine.ts';
 import { ExperimentEngine } from '../experiment/engine.ts';
 import type { Bot } from '../capture/bot.ts';
+import { validateIdeaInput, validateTelegramUserId, validateFeedbackInput } from '../middleware/validate.ts';
 
 interface Env {
   db: Storage;
   catalyst: Catalyst;
   experiment: ExperimentEngine;
   bot?: Bot;
-  tokens: Map<string, { userId: number; createdAt: number }>;
 }
 
 let env: Env;
@@ -26,7 +26,7 @@ function generateToken(): string {
 }
 
 /**
- * 验证 Token
+ * 验证 Token（从数据库读取）
  */
 function authenticate(req: Request): { valid: boolean; userId?: number } {
   const authHeader = req.headers.get('Authorization');
@@ -35,7 +35,7 @@ function authenticate(req: Request): { valid: boolean; userId?: number } {
   }
 
   const token = authHeader.slice(7);
-  const user = env.tokens.get(token);
+  const user = env.db.getToken(token);
   
   if (!user) {
     return { valid: false };
@@ -83,26 +83,52 @@ async function handleRequest(req: Request): Promise<Response> {
   // 公开端点 - Token 生成
   if (path === '/api/auth/token' && method === 'POST') {
     const body = await req.json().catch(() => ({}));
-    const { telegramUserId } = body;
+    try {
+      const telegramUserId = validateTelegramUserId(body.telegramUserId);
+      
+      // 生成新 Token 并持久化
+      const token = generateToken();
+      env.db.saveToken(token, telegramUserId);
 
-    if (!telegramUserId) {
-      return error('telegramUserId 必填', 400);
+      console.log(`🔑 Token 生成：${token} (user: ${telegramUserId})`);
+
+      return json({
+        token,
+        telegramUserId,
+        expiresAt: null
+      });
+    } catch (err: any) {
+      return error(err.message, 400);
+    }
+  }
+
+  // POST /api/auth/revoke - 撤销 Token
+  if (path === '/api/auth/revoke' && method === 'POST') {
+    const auth = authenticate(req);
+    if (!auth.valid) {
+      return error('未授权', 401);
     }
 
-    // 生成新 Token
-    const token = generateToken();
-    env.tokens.set(token, {
-      userId: telegramUserId,
-      createdAt: Date.now()
-    });
+    const body = await req.json().catch(() => ({}));
+    const tokenToRevoke = body.token;
 
-    console.log(`🔑 Token 生成：${token} (user: ${telegramUserId})`);
+    if (tokenToRevoke) {
+      env.db.revokeToken(tokenToRevoke);
+      console.log(`🔑 Token 撤销：${tokenToRevoke}`);
+    }
 
-    return json({
-      token,
-      telegramUserId,
-      expiresAt: null // 永不过期
-    });
+    return json({ success: true });
+  }
+
+  // GET /api/auth/tokens - 获取用户所有 Token
+  if (path === '/api/auth/tokens' && method === 'GET') {
+    const auth = authenticate(req);
+    if (!auth.valid) {
+      return error('未授权', 401);
+    }
+
+    const tokens = env.db.getUserTokens(auth.userId!);
+    return json({ tokens, count: tokens.length });
   }
 
   // 需要认证的端点
@@ -284,7 +310,7 @@ export async function startApiServer(
   db: Storage,
   catalyst: Catalyst,
   bot?: Bot,
-  port: number = 3001
+  port: number = parseInt(process.env.API_PORT || '3001', 10)
 ) {
   env = {
     db,

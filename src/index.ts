@@ -28,5 +28,6 @@ console.log('✅ 就绪 - 等待灵感输入');
 // 启动催化心跳（传入 bot 引用用于推送）
 catalyst.startHeartbeat(bot);
 
-// 启动 REST API 服务器
-await startApiServer(db, catalyst, bot, 3001);
+// 启动 REST API 服务器（端口可配置）
+const apiPort = parseInt(process.env.API_PORT || '3001', 10);
+await startApiServer(db, catalyst, bot, apiPort);

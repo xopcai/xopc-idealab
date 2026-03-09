@@ -134,27 +134,41 @@ ${context.marketSignals.map((s: any) => `• ${s.title}${s.upvotes ? ` (${s.upvo
   private async callAI(prompt: string): Promise<string> {
     // 如果有 API key，调用真实 API
     if (this.apiKey) {
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 秒超时
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API 错误：${response.status} - ${errorText}`);
+      try {
+        const response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 2000
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`API 错误：${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || '';
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('AI 响应超时（30 秒）');
+        }
+        throw error;
       }
-
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content || '';
     }
 
     // 没有 API key 时，返回占位符

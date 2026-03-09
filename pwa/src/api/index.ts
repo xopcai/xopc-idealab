@@ -42,11 +42,8 @@ export async function apiRequest<T>(
     const data = await res.json();
     return data;
   } catch (error: any) {
-    console.error('API 请求失败:', {
-      endpoint,
-      error: error.message,
-      stack: error.stack
-    });
+    // 生产环境不打印详细错误，避免泄露敏感信息
+    console.error('API 请求失败:', endpoint, error.message);
     throw error;
   }
 }

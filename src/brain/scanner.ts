@@ -17,15 +17,45 @@ export interface MarketSignal {
 export class MarketScanner {
   private cache: Map<string, { data: MarketSignal[]; timestamp: number }> = new Map();
   private cacheTtlMs: number = 6 * 60 * 60 * 1000; // 6 小时缓存
+  private retryCount: number = 3;
+  private retryDelayMs: number = 1000;
+
+  /**
+   * 带重试的扫描
+   */
+  private async scanWithRetry<T>(
+    scanFn: () => Promise<T>,
+    name: string
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let i = 0; i < this.retryCount; i++) {
+      try {
+        const result = await scanFn();
+        if (i > 0) {
+          console.log(`✅ ${name} 重试成功 (尝试 ${i + 1}/${this.retryCount})`);
+        }
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`⚠️ ${name} 失败 (尝试 ${i + 1}/${this.retryCount}):`, error.message);
+        
+        if (i < this.retryCount - 1) {
+          await new Promise(r => setTimeout(r, this.retryDelayMs * (i + 1)));
+        }
+      }
+    }
+    
+    throw lastError || new Error(`${name} 失败`);
+  }
 
   /**
    * 扫描所有数据源
    */
   async scanAll(): Promise<MarketSignal[]> {
     const [productHunt, github] = await Promise.all([
-      this.scanProductHunt(),
-      this.scanGitHub()
-      // this.scanHackerNews()
+      this.scanWithRetry(() => this.scanProductHunt(), 'Product Hunt'),
+      this.scanWithRetry(() => this.scanGitHub(), 'GitHub Trending')
     ]);
 
     const all = [...productHunt, ...github];

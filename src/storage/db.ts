@@ -102,6 +102,9 @@ export class Storage {
       )
     `);
 
+    // 初始化 Token 表
+    this.initTokensTable();
+
     console.log('📦 数据库初始化完成');
   }
 
@@ -208,6 +211,57 @@ export class Storage {
     const row = this.db.query('SELECT value FROM user_profile WHERE key = ?').get(key) as any;
     if (!row) return null;
     return JSON.parse(row.value);
+  }
+
+  // Token 管理
+  initTokensTable() {
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS tokens (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER,
+        revoked INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+  }
+
+  saveToken(token: string, userId: number, expiresAt?: number) {
+    const now = Date.now();
+    this.db.run(
+      `INSERT INTO tokens (token, user_id, created_at, expires_at, revoked) 
+       VALUES (?, ?, ?, ?, 0)
+       ON CONFLICT(token) DO UPDATE SET revoked = 0`,
+      [token, userId, now, expiresAt || null]
+    );
+  }
+
+  getToken(token: string): { userId: number; createdAt: number } | null {
+    const row = this.db.query(
+      `SELECT user_id, created_at FROM tokens 
+       WHERE token = ? AND revoked = 0 
+       AND (expires_at IS NULL OR expires_at > ?)`
+    ).get(token, Date.now()) as any;
+    
+    if (!row) return null;
+    return {
+      userId: row.user_id,
+      createdAt: row.created_at
+    };
+  }
+
+  revokeToken(token: string) {
+    this.db.run(
+      `UPDATE tokens SET revoked = 1 WHERE token = ?`,
+      [token]
+    );
+  }
+
+  getUserTokens(userId: number): string[] {
+    const rows = this.db.query(
+      `SELECT token FROM tokens WHERE user_id = ? AND revoked = 0`
+    ).all(userId) as any[];
+    return rows.map(r => r.token);
   }
 
   getPendingCatalysis(): Idea[] {
